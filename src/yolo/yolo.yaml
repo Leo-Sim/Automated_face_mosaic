@@ -1,0 +1,5 @@
+train: C:\pythonproject/Automated Face Mosaic/data/face_dataset/train
+val: C:\pythonproject/Automated Face Mosaic/data/face_dataset/test
+
+nc: 1
+names: ['face' ]
