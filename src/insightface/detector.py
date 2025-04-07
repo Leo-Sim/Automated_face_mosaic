@@ -33,19 +33,22 @@ class FaceManager:
 
 
     def detect_face(self, compare_face):
-        video_faces = self.app.get(compare_face)
 
+        video_faces = self.app.get(compare_face)
         target_vector = self.target_embedding.reshape(1, -1)
 
         for i, video_face in enumerate(video_faces):
 
-
             video_face_embedding = video_face.embedding
-
 
             compare_vector = video_face_embedding.reshape(1, -1)
 
             similarity = cosine_similarity(target_vector, compare_vector)
+
+            if similarity > 0.5:
+                return DetectInfo(True, video_face.bbox)
+
+        return None
 
 
 class DetectInfo:

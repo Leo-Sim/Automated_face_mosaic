@@ -72,22 +72,23 @@ class VideoPlayer:
                 detect_results = yolo_model(frame)
                 detected_list = []
 
-                for box in detect_results[0].boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    confidence = float(box.conf[0])
-
-                    cordinates = [x1, y1, x2, y2, confidence]
+                # for box in detect_results[0].boxes:
+                    # x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    # confidence = float(box.conf[0])
+                    #
+                    # cordinates = [x1, y1, x2, y2, confidence]
 
                     # cropped_frame = frame[y1:y2, x1:x2]
-                    detect_result = self.face_detector.detect_face(frame)
+                detect_result = self.face_detector.detect_face(frame)
 
-                    print("detect  : ", detect_result)
-                    # plt.imshow(cropped_frame)
-                    # plt.show()
-                    break
+                if detect_result is not None:
+
+                    x1, y1, x2, y2 = np.array(detect_result.bbox)
 
 
-                    detected_list.append(cordinates)
+                    cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+
+
 
                     # self._draw_rectangle(frame, x1, y1, x2, y2)
 
