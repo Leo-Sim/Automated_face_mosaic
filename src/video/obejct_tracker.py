@@ -29,29 +29,43 @@ class ObjectTracker(Sort):
         "id2" : "last_frame_num"
     }
 
-    def __init__(self):
+    def __init__(self, video_width, video_height):
         super().__init__()
 
-        self.history = {}
+        self.video_width = video_width
+        self.video_height = video_height
 
+        self.history = {}
 
         self.remove_threshold = 250
 
 
-    def _remove_old_id_from_history(self, frame_num):
+    def _remove_old_id_from_track_history(self, frame_num):
 
         if frame_num % 99 == 0:
+            del_list = []
             for id in self.history:
                 last_frame = self.history[id]["frame"]
                 if last_frame > self.remove_threshold:
-                    del self.history[id]
+
+                    del_list.append(id)
+
+            for id in del_list:
+                del self.history[id]
 
 
     # Override Sort update. Add function to save object history
+
+    # --------------------------------------------------------
+    # 직전 프레임에서 얼굴이 탐지되었고, 다음프레임에서 얼굴이 탐지되지 않는 경우에,
+    # 직전 프레임의  box정보를 가져와서 이것이 충분히 크고 화면상의 위치 (너무 가장자리쪽이 아니라면)  이전 정보의 위치로 모자이크
+    # 또 무슨방법이 있을까.... 과거 몇장의 프레임에서 탐지된 얼굴을 가져와서 크기 변화율도 적용..?
+    # --------------------------------------------------------
     def update(self, frame_num: int, dets=np.empty((0, 5))):
         result = super().update(dets)
 
-        #
+        self._remove_old_id_from_track_history(frame_num)
+
         for row in result:
             id = row[4]
 

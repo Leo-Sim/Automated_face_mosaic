@@ -3,5 +3,5 @@
 yolo:
   image_size: 640
   batch_size: 32
-  epoch: 3 0
+  epoch: 50
   export_path: ".src/model"

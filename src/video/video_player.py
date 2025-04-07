@@ -2,8 +2,11 @@ import cv2
 import numpy as np
 import time
 
+from typing import Optional
 from ultralytics import YOLO
 from obejct_tracker import ObjectTracker
+from src.insightface.detector import FaceManager
+import matplotlib.pyplot as plt
 
 
 
@@ -16,6 +19,11 @@ class VideoPlayer:
 
     def __init__(self, video_path):
         self.video_path = video_path
+        self.face_detector: Optional[FaceManager] = None
+
+
+    def set_face_detector(self, face_detector: FaceManager):
+        self.face_detector = face_detector
 
     def _draw_rectangle(self, frame, x1, y1, x2, y2):
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -48,6 +56,8 @@ class VideoPlayer:
 
         tracker = ObjectTracker(width, height)
 
+        detected_list = []
+
         frame_num = 0
         while (cap.isOpened):
             ret, frame = cap.read()
@@ -57,33 +67,46 @@ class VideoPlayer:
             if not ret:
                 break
 
-            frame_num += 1
-            detected_list = []
-            detect_results = yolo_model(frame)
+
+            if frame_num % 13 == 12:
+                detect_results = yolo_model(frame)
+                detected_list = []
+
+                for box in detect_results[0].boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    confidence = float(box.conf[0])
+
+                    cordinates = [x1, y1, x2, y2, confidence]
+
+                    # cropped_frame = frame[y1:y2, x1:x2]
+                    detect_result = self.face_detector.detect_face(frame)
+
+                    print("detect  : ", detect_result)
+                    # plt.imshow(cropped_frame)
+                    # plt.show()
+                    break
 
 
-            for box in detect_results[0].boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                confidence = float(box.conf[0])
+                    detected_list.append(cordinates)
 
-                cordinates = [x1, y1, x2, y2, confidence]
+                    # self._draw_rectangle(frame, x1, y1, x2, y2)
 
+                # Tracker
+            # SORT로 객체 추적
 
+            # print("detected_list : ", len(detected_list))
 
-                detected_list.append(cordinates)
+            if len(detected_list) > 0:
+                track_bbs_ids = tracker.update(frame_num, np.array(detected_list))
+            # else:
+            #     track_bbs_ids = tracker.update(frame_num, np.empty(0, 5))
 
-                # self._draw_rectangle(frame, x1, y1, x2, y2)
+            # print("track_bbs_ids : ", len(track_bbs_ids))
 
-            # Tracker
-                # SORT로 객체 추적
-                if len(cordinates) > 0:
-                    track_bbs_ids = tracker.update(frame_num, np.array(detected_list))
-                else:
-                    track_bbs_ids = tracker.update(frame_num, np.empty(0, 5))
+            video_frame_width = frame.shape[1]  # 프레임의 너비 (640)
+            video_frame_height = frame.shape[0]  # 프레임의 높이 (360)
 
-                video_frame_width = frame.shape[1]  # 프레임의 너비 (640)
-                video_frame_height = frame.shape[0]  # 프레임의 높이 (360)
-
+            if len(detected_list) > 0:
                 # 프레임에 추적 결과 표시
                 for track in track_bbs_ids:
                     x1, y1, x2, y2, obj_id = track.astype(int)
@@ -94,9 +117,6 @@ class VideoPlayer:
 
                     w = x2 - x1
                     h = y2 - y1
-
-                    print("@@@ w : ", w)
-                    print("@@@ h : ", h)
 
                     # Apply mosaic in ROI
                     roi = frame[y1:y2, x1:x2]
