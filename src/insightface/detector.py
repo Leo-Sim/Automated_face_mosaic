@@ -3,6 +3,7 @@ import numpy as np
 from insightface.app import FaceAnalysis
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.video.detection_info import FaceDetectionInfo
 
 class FaceManager:
 
@@ -46,25 +47,7 @@ class FaceManager:
             similarity = cosine_similarity(target_vector, compare_vector)
 
             if similarity > 0.5:
-                return DetectInfo(True, video_face.bbox)
+                return FaceDetectionInfo(video_face.bbox, True)
 
         return None
-
-
-class DetectInfo:
-
-
-    def __init__(self, is_same, bbox):
-        self._is_same = is_same
-        self._bbox = bbox
-
-
-    @property
-    def is_same(self):
-        return self._is_same
-
-    @property
-    def bbox(self):
-        return self._bbox
-
 

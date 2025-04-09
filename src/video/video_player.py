@@ -6,8 +6,11 @@ from typing import Optional
 from ultralytics import YOLO
 from obejct_tracker import ObjectTracker
 from src.insightface.detector import FaceManager
+from detection_info import FaceDetectionInfo, MosaicInfo
+
 import matplotlib.pyplot as plt
 
+from src.video.detection_info import DetectionInfo
 
 
 # from src.deepface.detector import image
@@ -68,46 +71,66 @@ class VideoPlayer:
                 break
 
 
-            if frame_num % 13 == 12:
+            if frame_num % 10 == 9:
                 detect_results = yolo_model(frame)
                 detected_list = []
 
-                # for box in detect_results[0].boxes:
-                    # x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    # confidence = float(box.conf[0])
-                    #
-                    # cordinates = [x1, y1, x2, y2, confidence]
+                for box in detect_results[0].boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    confidence = float(box.conf[0])
 
-                    # cropped_frame = frame[y1:y2, x1:x2]
-                detect_result = self.face_detector.detect_face(frame)
+                    mosaicInfo: MosaicInfo = MosaicInfo([x1, y1, x2, y2], confidence, True)
+                    detected_list.append(mosaicInfo)
 
-                if detect_result is not None:
+                face_detection_result: FaceDetectionInfo = self.face_detector.detect_face(frame)
 
-                    x1, y1, x2, y2 = np.array(detect_result.bbox)
+                if face_detection_result is not None:
 
+                    # find the face that has closest distance to target face so that the model does not apply mosaic to it
+                    # if target face is detected and the number of faces by yolo is 1,  no need to apply mosaic.
+                    if len(detected_list) == 1:
+                        detected_list[0].need_mosaic = False
 
-                    cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                    elif len(detected_list) > 1:
+                        min_distance = float('inf')
+                        min_detection_id = 0
 
+                        # Find the closest face to the face detected by insightface
+                        for yolo_detection in detected_list:
 
+                            distance = DetectionInfo.get_distance_of_two_points(face_detection_result, yolo_detection)
+                            if distance < min_distance:
+                                min_distance = distance
+                                min_detection_id = yolo_detection.id
 
-                    # self._draw_rectangle(frame, x1, y1, x2, y2)
+                        # change attribute not to apply mosaic
+                        for yolo_detection in detected_list:
+                            if yolo_detection.id == min_detection_id:
+                                yolo_detection.need_mosaic = False
+                                break
 
-                # Tracker
-            # SORT로 객체 추적
-
-            # print("detected_list : ", len(detected_list))
-
+            # apply mosaic
             if len(detected_list) > 0:
-                track_bbs_ids = tracker.update(frame_num, np.array(detected_list))
-            # else:
-            #     track_bbs_ids = tracker.update(frame_num, np.empty(0, 5))
 
-            # print("track_bbs_ids : ", len(track_bbs_ids))
+                yolo_detected_infos = []
 
-            video_frame_width = frame.shape[1]  # 프레임의 너비 (640)
-            video_frame_height = frame.shape[0]  # 프레임의 높이 (360)
+                for yolo_detection in detected_list:
 
-            if len(detected_list) > 0:
+                    if yolo_detection.need_mosaic is False:
+                        continue
+
+                    x1, y1, x2, y2 = yolo_detection.bbox
+                    confidence = yolo_detection.confidence
+
+                    tmp = [x1, y1, x2, y2, confidence]
+                    yolo_detected_infos.append(tmp)
+
+
+                track_bbs_ids = tracker.update(frame_num, np.array(yolo_detected_infos))
+
+                video_frame_width = frame.shape[1]  # 프레임의 너비 (640)
+                video_frame_height = frame.shape[0]  # 프레임의 높이 (360)
+
                 # 프레임에 추적 결과 표시
                 for track in track_bbs_ids:
                     x1, y1, x2, y2, obj_id = track.astype(int)
