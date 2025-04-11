@@ -71,7 +71,7 @@ class VideoPlayer:
                 break
 
 
-            if frame_num % 10 == 9:
+            if frame_num == 1 or frame_num % 10 == 9:
                 detect_results = yolo_model(frame)
                 detected_list = []
 
@@ -160,7 +160,8 @@ class VideoPlayer:
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(frame, f"ID: {obj_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-            cv2.imshow('frame', frame)
+            resized_frame = cv2.resize(frame, (720, 1280))
+            cv2.imshow('frame', resized_frame)
 
             if cv2.waitKey(60) & 0xFF == ord('q'):
                 break
