@@ -1,4 +1,7 @@
 
+video:
+  input_path: "src/video/test1.MOV"
+  output_path: "src/output/output"
 
 yolo:
   image_size: 640
