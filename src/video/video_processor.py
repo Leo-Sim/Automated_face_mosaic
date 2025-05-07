@@ -12,11 +12,11 @@ input_path = config.get_video_input_path()
 output_path = config.get_video_output_path()
 
 
-detector = FaceManager("../insightface/nani.JPG")
+detector = FaceManager("../insightface/jaelynn.jpg")
 
 
 
-video = VideoPlayer(input_path)
+video = VideoPlayer(input_path, output_path)
 video.set_face_detector(detector)
 
 video.play()

@@ -50,8 +50,75 @@ class FaceTrackHistory(dict):
     REMOVE_THRESHOLD_FRAME = 30
     REMOVE_INTERVAL = 100
 
+    NUM_OF_PREVIOUS_FRAMES = 3
+
     def __init__(self):
         pass
+
+    def get_estimated_next_position(self, track_id, frame_num) -> FaceTrackInfo:
+
+        if len(self[track_id]) > FaceTrackHistory.NUM_OF_PREVIOUS_FRAMES:
+            history_list = self[track_id][-FaceTrackHistory.NUM_OF_PREVIOUS_FRAMES:]
+
+            center_position_list = []
+            speed_list = []
+
+            # get center positions of previous bounding boxes
+            for history in history_list:
+
+                cx = (history.x1 + history.x2) / 2
+                cy = (history.y1 + history.y2) / 2
+
+                center_position_list.append((cx, cy))
+
+            center_position_leng = len(center_position_list)
+
+            # get speed at every frame
+            for i in range(center_position_leng - 1):
+
+                # get speed between consecutive 2 frames
+                sx1 = center_position_list[i][0]
+                sy1 = center_position_list[i][1]
+
+                sx2 = center_position_list[i + 1][0]
+                sy2 = center_position_list[i + 1][1]
+
+                vx = (sx2 - sx1)
+                vy = (sy2 - sy1)
+                speed_list.append((vx, vy))
+
+            # get average speed for x and y directions
+            avg_vx = sum(vx for vx, vy in speed_list) / len(speed_list)
+            avg_vy = sum(vy for vx, vy in speed_list) / len(speed_list)
+
+            last_frame = self[track_id][-1]
+            last_cx = (last_frame.x1 + last_frame.x2) / 2
+            last_cy = (last_frame.y1 + last_frame.y2) / 2
+
+            # get estimated center position
+            estimated_cx = last_cx + avg_vx
+            estimated_cy = last_cy + avg_vy
+
+            # get new bounding box position
+            box_width = last_frame.x2 - last_frame.x1
+            box_height = last_frame.y2 - last_frame.y1
+
+            new_x1 = int(estimated_cx - box_width / 2)
+            new_x2 = int(estimated_cx + box_width / 2)
+            new_y1 = int(estimated_cy - box_height / 2)
+            new_y2 = int(estimated_cy + box_height / 2)
+
+            return FaceTrackInfo(track_id, frame_num, new_x1, new_y1, new_x2, new_y2)
+
+
+        return None
+
+
+
+
+
+
+
 
     def add_frame(self, track_id, frame_num, x1, y1, x2, y2) -> None:
         # Check if id is already exist
@@ -94,21 +161,7 @@ class ObjectTracker(Sort):
     REMOVE_HISTORY_INTERVAL = 55
     REMOVE_THRESHOLD = 50
 
-    # 객체 추적 저장 포맷
-    history_format = {
-        "id" : {
-            "x1": "",
-            "x2": "",
-            "y1": "y1",
-            "frame" : 1
-        }
-    }
 
-    # 객체 아이디 추적 저장 포맷 (특정 객체를 삭제하기 위함)
-    last_detected = {
-        "id" : "last_frame_num",
-        "id2" : "last_frame_num"
-    }
 
     def __init__(self, video_width, video_height):
         super().__init__()
@@ -119,48 +172,8 @@ class ObjectTracker(Sort):
         self.face_detect_history = FaceTrackHistory()
 
 
-
-
-    # def _remove_old_id_from_track_history(self, frame_num):
-    #
-    #     threshold = ObjectTracker.REMOVE_THRESHOLD
-    #
-    #     if frame_num % threshold == threshold - 1:
-    #         del_list = []
-    #         for id in self.history:
-    #             last_frame = self.history[id]["frame"]
-    #             if (frame_num - last_frame) > ObjectTracker.REMOVE_THRESHOLD:
-    #
-    #                 del_list.append(id)
-    #
-    #
-    #         for id in del_list:
-    #             print("@@@@@@@@@@@@@@@@@@@@@@@@ remove id : ", id)
-    #             print("frame_num : ", frame_num)
-    #             del self.history[id]
-
-
-    # Override Sort update. Add function to save object history
-
-    # --------------------------------------------------------
-    # 직전 프레임에서 얼굴이 탐지되었고, 다음프레임에서 얼굴이 탐지되지 않는 경우에,
-    # 직전 프레임의  box정보를 가져와서 이것이 충분히 크고 화면상의 위치 (너무 가장자리쪽이 아니라면)  이전 정보의 위치로 모자이크
-    # 또 무슨방법이 있을까.... 과거 몇장의 프레임에서 탐지된 얼굴을 가져와서 크기 변화율도 적용..?
-    # --------------------------------------------------------
-
-
-    """
-        1. frame_num을 통해서 직전 프레임에 탐지된 애들 골라내기
-        2. 너무가장자리가 아닌지 위치 확인.
-        3. 그 후 앞으로 나올 3~5프레임을 보정
-        
-    """
     def update(self, frame_num: int, dets=np.empty((0, 5))):
         result = super().update(dets)
-
-        # self._remove_old_id_from_track_history(frame_num)
-
-        # get id that is not in current frame but in current - 1 frame
 
         for r in result:
             track_id = r[4]
@@ -172,41 +185,8 @@ class ObjectTracker(Sort):
 
             self.face_detect_history.add_frame(track_id, frame_num, x1, y1, x2, y2)
 
-
-
-        # self.face_detect_history.add_frame(frame_num, result)
-
-        # print("last : ", self.face_detect_history.get_last_detected_frame(frame_num))
-
-        # for row in result:
-        #     id = row[4]
-        #
-        #     x1 = row[0]
-        #     y1 = row[1]
-        #     x2 = row[2]
-        #     y2 = row[3]
-        #
-        #     """
-        #         밑의 맵 구조가 이상한데...
-        #         id별 탐지된 모든 프레임을 저장해야하는데,
-        #         "frame": frame_num 을 저장하면, 현재프레임만 저장되는데. 즉, 키값 id에 value가 계속 현재프레임으로 오버라이딩돼...
-        #     """
-        #
-        #     self.history[id] = {
-        #         "x1" : x1,
-        #         "x2" : x2,
-        #         "y1" : y1,
-        #         "y2" : y2,
-        #         "frame" : frame_num
-        #     }
-        #
-        #     self.last_detected[id] = {
-        #         "last_detected_frame" : frame_num,
-        #     }
-
-
-
-
         return result
 
+    def get_estimated_next_position(self, track_id, frame_num) -> FaceTrackInfo:
+        return self.face_detect_history.get_estimated_next_position(track_id, frame_num)
 

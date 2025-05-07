@@ -20,8 +20,9 @@ from src.video.detection_info import DetectionInfo
 
 class VideoPlayer:
 
-    def __init__(self, video_path):
+    def __init__(self, video_path, output_path):
         self.video_path = video_path
+        self.output_path = output_path
         self.face_detector: Optional[FaceManager] = None
 
 
@@ -61,10 +62,23 @@ class VideoPlayer:
 
         detected_list = []
 
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+        out = cv2.VideoWriter(self.output_path, fourcc, 30.0, (720, 1280))
+
+        # These variables are for comparing id that is detected in previous frame
+        # but not in current frame
+        detected_id_in_prev_frame = set()
+        detected_id_in_cur_frame = set()
+
         frame_num = 0
         while (cap.isOpened):
             ret, frame = cap.read()
             frame_num += 1
+
+            # if frame_num == 200:
+            #
+            #     break
 
 
             if not ret:
@@ -74,6 +88,11 @@ class VideoPlayer:
             if frame_num == 1 or frame_num % 10 == 9:
                 detect_results = yolo_model(frame)
                 detected_list = []
+
+
+
+
+                print("detected_id_in_prev_frame : ", detected_id_in_prev_frame)
 
                 for box in detect_results[0].boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -128,12 +147,16 @@ class VideoPlayer:
 
                 track_bbs_ids = tracker.update(frame_num, np.array(yolo_detected_infos))
 
-                video_frame_width = frame.shape[1]  # 프레임의 너비 (640)
-                video_frame_height = frame.shape[0]  # 프레임의 높이 (360)
+                video_frame_width = frame.shape[1]
+                video_frame_height = frame.shape[0]
 
-                # 프레임에 추적 결과 표시
+
                 for track in track_bbs_ids:
                     x1, y1, x2, y2, obj_id = track.astype(int)
+
+                    detected_id_in_cur_frame.clear()
+                    detected_id_in_cur_frame.add(obj_id)
+
 
                     # used min to prevent get width and height outside of frame.
                     x1, x2 = max(0, x1), min(video_frame_width, x2)
@@ -142,9 +165,8 @@ class VideoPlayer:
                     w = x2 - x1
                     h = y2 - y1
 
-                    # Apply mosaic in ROI
+                    # Apply mosaic
                     roi = frame[y1:y2, x1:x2]
-
                     intensity = 10
 
                     if w < 10:
@@ -160,13 +182,40 @@ class VideoPlayer:
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(frame, f"ID: {obj_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
+
+                need_estimation_id = detected_id_in_prev_frame - detected_id_in_cur_frame
+
+                # if(len(need_estimation_id) > 0):
+                #     for id in need_estimation_id:
+                #         e = tracker.get_estimated_next_position(id, frame_num)
+                #
+                #         estimated_x1 = e.x1
+                #         estimated_y1 = e.y1
+                #         estimated_x2 = e.x2
+                #         estimated_y2 = e.y2
+                #
+                #
+                #         cv2.rectangle(frame, (estimated_x1, estimated_y1), (estimated_x2, estimated_y2), (255, 0, 0), 2)
+                #         # cv2.putText(frame, f"ID: {obj_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
+                #         #             2)
+
+
+                detected_id_in_prev_frame.clear()
+                detected_id_in_prev_frame.update(detected_id_in_cur_frame)
+
             resized_frame = cv2.resize(frame, (720, 1280))
+
+            # ③ 저장 (VideoWriter에 프레임 추가)
+            out.write(resized_frame)
+
+
             cv2.imshow('frame', resized_frame)
 
             if cv2.waitKey(60) & 0xFF == ord('q'):
                 break
 
         cap.release()
+        out.release()
         cv2.destroyAllWindows()
 
 
