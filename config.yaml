@@ -1,0 +1,10 @@
+
+video:
+  input_path: "src/video/test121.mp4"
+  output_path: "src/output/output.mp4"
+
+yolo:
+  image_size: 640
+  batch_size: 32
+  epoch: 50
+  export_path: ".src/model"
