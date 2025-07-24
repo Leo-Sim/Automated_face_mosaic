@@ -25,3 +25,13 @@ The system uses:
 | `batch_size`     | Number of samples per batch during training.                    | `32`                  |
 | `epoch`          | Total number of training epochs.                                 | `50`                  |
 | `export_path`    | Directory path to save the trained YOLO model.                  | `".src/model"`        |
+
+
+## 🧪 Sample Execution Result
+
+The image below is a sample frame captured during video playback, demonstrating the output of the automatic face recognition and mosaic system.
+
+- The **green box** indicates a face that was automatically **detected** by the model and subsequently **blurred**.
+- The **smiling emoji** was **manually added** to cover a **non-target face**, which was intentionally **excluded from automatic processing** for privacy reasons.
+
+<img width="291" height="466" alt="image" src="https://github.com/user-attachments/assets/001d16fe-712c-46e1-87b9-15bb1191e02e" />
